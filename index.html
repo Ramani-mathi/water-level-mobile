@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Water Level Monitor</title>
 
   <style>
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -36,7 +41,7 @@
       border-radius: 18px;
       padding: 30px 20px;
       text-align: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
     }
 
     .label {
@@ -80,13 +85,26 @@
       color: white;
       font-size: 16px;
       cursor: pointer;
+      margin-left: 5px;
+      margin-right: 5px;
     }
 
     button:hover {
       background: #125f91;
     }
+
+    .alarm-button {
+      background: #e67e22;
+    }
+
+    .alarm-button:hover {
+      background: #ca6f1e;
+    }
+
   </style>
+
 </head>
+
 
 <body>
 
@@ -94,61 +112,232 @@
 
     <h1>💧 Water Level Monitor</h1>
 
+
     <div class="card">
 
-      <div class="label">Current Water Level</div>
+      <div class="label">
+        Current Water Level
+      </div>
+
 
       <div>
-        <span class="value" id="waterLevel">--</span>
-        <span class="unit">%</span>
+
+        <span class="value" id="waterLevel">
+          --
+        </span>
+
+        <span class="unit">
+          %
+        </span>
+
       </div>
+
 
       <div class="status" id="status">
         Loading...
       </div>
 
+
       <div class="updated" id="updated">
         Waiting for data...
       </div>
 
+
       <button onclick="getWaterLevel()">
-        Refresh
+        🔄 Refresh
+      </button>
+
+
+      <button class="alarm-button" onclick="enableAlarm()">
+        🔊 Enable Alarm
       </button>
 
     </div>
 
   </div>
 
+
+
   <script>
+
+    /* --------------------------------
+       ALARM VARIABLES
+    -------------------------------- */
+
+    let alarmEnabled = false;
+
+    let alarmPlaying = false;
+
+
+
+    /* --------------------------------
+       ENABLE ALARM
+    -------------------------------- */
+
+    function enableAlarm() {
+
+      alarmEnabled = true;
+
+      alert("🔊 Alarm enabled!");
+
+    }
+
+
+
+    /* --------------------------------
+       PLAY ALARM SOUND
+    -------------------------------- */
+
+    function playAlarm() {
+
+      if (!alarmEnabled || alarmPlaying) {
+
+        return;
+
+      }
+
+
+      alarmPlaying = true;
+
+
+      const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+
+      const audioContext = new AudioContext();
+
+
+      const oscillator =
+        audioContext.createOscillator();
+
+
+      const gain =
+        audioContext.createGain();
+
+
+      oscillator.type = "square";
+
+      oscillator.frequency.value = 800;
+
+
+      oscillator.connect(gain);
+
+      gain.connect(audioContext.destination);
+
+
+      oscillator.start();
+
+
+      setTimeout(function() {
+
+        oscillator.stop();
+
+        audioContext.close();
+
+        alarmPlaying = false;
+
+      }, 2000);
+
+    }
+
+
+
+    /* --------------------------------
+       GET WATER LEVEL FROM THINGSPEAK
+    -------------------------------- */
 
     async function getWaterLevel() {
 
       try {
 
-       const response = await fetch(
-  "https://api.thingspeak.com/channels/3518528/fields/1/last.json?api_key=SDQOVESKFGKWB7EN"
-);
+        const response = await fetch(
+
+          "https://api.thingspeak.com/channels/3518528/fields/1/last.json?api_key=SDQOVESKFGKWB7EN&t="
+          + Date.now(),
+
+          {
+            cache: "no-store"
+          }
+
+        );
+
 
         const data = await response.json();
 
+
         const level = Number(data.field1);
 
-        document.getElementById("waterLevel").textContent = level;
+
+
+        /* --------------------------------
+           CHECK VALID DATA
+        -------------------------------- */
+
+        if (isNaN(level)) {
+
+          document.getElementById("waterLevel").textContent = "--";
+
+          document.getElementById("status").textContent =
+            "Unable to read water level";
+
+          return;
+
+        }
+
+
+
+        /* --------------------------------
+           DISPLAY WATER LEVEL
+        -------------------------------- */
+
+        document.getElementById("waterLevel").textContent =
+          level;
+
+
+
+        /* --------------------------------
+           STATUS
+        -------------------------------- */
 
         if (level > 80) {
-          document.getElementById("status").textContent = "⚠️ Critical";
+
+          document.getElementById("status").textContent =
+            "⚠️ Critical";
+
+          playAlarm();
+
         }
+
+
         else if (level > 60) {
-          document.getElementById("status").textContent = "⚠️ Warning";
+
+          document.getElementById("status").textContent =
+            "⚠️ Warning";
+
         }
+
+
         else {
-          document.getElementById("status").textContent = "✓ Normal";
+
+          document.getElementById("status").textContent =
+            "✓ Normal";
+
         }
+
+
+
+        /* --------------------------------
+           LAST UPDATED TIME
+        -------------------------------- */
 
         document.getElementById("updated").textContent =
           "Last updated: " + data.created_at;
 
+
       }
+
+
       catch (error) {
 
         document.getElementById("status").textContent =
@@ -157,13 +346,28 @@
         console.log(error);
 
       }
+
     }
 
+
+
+    /* --------------------------------
+       FIRST DATA LOAD
+    -------------------------------- */
+
     getWaterLevel();
-    
+
+
+
+    /* --------------------------------
+       AUTOMATIC UPDATE EVERY 15 SECONDS
+    -------------------------------- */
+
     setInterval(getWaterLevel, 15000);
 
   </script>
 
+
 </body>
+
 </html>
